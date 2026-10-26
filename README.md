@@ -32,14 +32,14 @@ jobs:
       issues: write
     uses: TakashiAihara/openrouter-review/.github/workflows/review.yml@main
     with:
-      model: z-ai/glm-5.3
+      model: z-ai/glm-5.3-flash
     secrets:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
 ```
 
 `@main` follows this repository, so a model or prompt change here reaches every caller at once. Pin a commit instead if you want to review each change before it runs.
 
-`model` is an OpenRouter model id without the `openrouter/` prefix; `z-ai/glm-5.3` above is an example, not a recommendation. A model whose endpoints all may train on prompts fails, because of `data_collection: deny`. A paid model needs a balance and a key credit limit above $0.
+`model` is an OpenRouter model id without the `openrouter/` prefix; `z-ai/glm-5.3-flash` above is an example, not a default: it is the paid counterpart of the free model that found both bugs below. A model whose endpoints all may train on prompts fails, because of `data_collection: deny`. A paid model needs a balance and a key credit limit above $0.
 
 ## Limits
 
