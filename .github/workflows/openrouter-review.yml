@@ -16,5 +16,8 @@ jobs:
       pull-requests: write
       issues: write
     uses: ./.github/workflows/review.yml
+    with:
+      # Free, does not train on prompts, and answered every run here; its reviews are weak.
+      model: cohere/north-mini-code:free
     secrets:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
