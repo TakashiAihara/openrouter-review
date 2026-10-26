@@ -43,7 +43,20 @@ jobs:
 
 ## Limits
 
-- OpenRouter caps free models at 20 requests a minute and 50 a day per account, or 1000 a day once the account has bought at least 10 credits ([limits](https://openrouter.ai/docs/api/reference/limits)). One review is several requests (the agent reads files one call at a time), and every repository using the same account shares the cap. More accounts do not raise it, and the [terms](https://openrouter.ai/terms) forbid making them for that.
+- OpenRouter caps free models at 20 requests a minute and 50 a day per account, or 1000 a day once the account has bought at least 10 credits ([limits](https://openrouter.ai/docs/api/reference/limits)). One review took 15 to 18 requests here (the agent reads files one call at a time), and every repository using the same account shares the cap. More accounts do not raise it, and the [terms](https://openrouter.ai/terms) forbid making them for that.
 - Public repositories only for now. opencode fetches the PR branch without credentials, and the opencode binary the action installs is the latest release, not a pinned one.
 - When a model is withdrawn, the job fails until the caller changes `model`.
 - The model reads the PR's diff and messages, so text in them can steer what the review says. With no shell and no edits, the comment is the only thing it writes.
+
+## Free models tried (2026-10)
+
+Each model reviewed a replay of a pull request with two known bugs, which opencode-review's `opencode/glm-5.3-flash-free` found. Both bugs sit in a file outside the diff that the agent can read.
+
+| Model | Trains on prompts | Known bugs found |
+|---|---|---|
+| `nvidia/nemotron-3-ultra-550b-a55b:free` | yes | 0 of 2 |
+| `nvidia/nemotron-3.5-lightning:free` | yes | 0 of 2 |
+| `cohere/north-mini-code:free` | no | 0 of 2, and reported a bug that is not there |
+| `google/gemma-4-31b-it:free` | no | not measured: rate-limited upstream on every run |
+
+The NVIDIA free endpoints also come under NVIDIA's [API Trial terms](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf), which allow trial and evaluation only, not production use.
