@@ -93,9 +93,7 @@ jobs:
             {"default_agent": "plan", "share": "disabled",
             "small_model": "openrouter/${{ inputs.model }}", "permission": {"edit": "deny",
             "bash": "deny", "webfetch": "deny", "websearch": "deny", "external_directory":
-            {"*": "deny", "${{ runner.temp }}/openrouter-review/*": "allow"}},
-            "provider": {"openrouter": {"models": {"${{ inputs.model }}":
-            {"options": {"provider": {"data_collection": "deny"}}}}}}}
+            {"*": "deny", "${{ runner.temp }}/openrouter-review/*": "allow"}}}
         with:
           model: openrouter/${{ inputs.model }}
           use_github_token: true
