@@ -11,7 +11,7 @@ This is [opencode-review](https://github.com/TakashiAihara/opencode-review) with
 
 ## Use
 
-1. Create an OpenRouter API key and add it as the repository secret `OPENROUTER_API_KEY`. Keep the account at no balance and no auto top-up: a leaked key then reaches the free models only.
+1. Create an OpenRouter API key and add it as the repository secret `OPENROUTER_API_KEY`. Set the key's credit limit to $0: free models still answer, and a leaked key cannot spend the account's balance on paid ones.
 2. Add `.github/workflows/openrouter-review.yml`:
 
 ```yaml

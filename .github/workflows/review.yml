@@ -86,10 +86,13 @@ jobs:
           # from the checked-out tree, override the permissions below and run code.
           # data_collection deny makes OpenRouter refuse the request rather than route it to a
           # provider that may train on it, so a model whose free endpoint starts training fails
-          # the job instead of quietly sending the PR there.
+          # the job instead of quietly sending the PR there. small_model is the same model because
+          # opencode otherwise names the session with a paid model through the same key, without
+          # that option (run 40321742692, refused only by the key's $0 limit).
           OPENCODE_DISABLE_PROJECT_CONFIG: "true"
           OPENCODE_CONFIG_CONTENT: >-
-            {"default_agent": "plan", "share": "disabled", "permission": {"edit": "deny",
+            {"default_agent": "plan", "share": "disabled",
+            "small_model": "openrouter/${{ inputs.model }}", "permission": {"edit": "deny",
             "bash": "deny", "webfetch": "deny", "websearch": "deny", "external_directory":
             {"*": "deny", "${{ runner.temp }}/openrouter-review/*": "allow"}},
             "provider": {"openrouter": {"models": {"${{ inputs.model }}":
