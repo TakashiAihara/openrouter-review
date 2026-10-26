@@ -2,7 +2,7 @@
 
 A reusable GitHub Actions workflow that reviews each pull request with [opencode](https://github.com/anomalyco/opencode) on a free [OpenRouter](https://openrouter.ai/) model and posts the review as one comment in Japanese.
 
-- The model is `google/gemma-4-31b-it:free`. Its free endpoint (Google AI Studio) is listed by OpenRouter as not training on prompts and keeping them 55 days. Every request is sent with `data_collection: deny`, so OpenRouter refuses it rather than route it to a provider that may train on it.
+- The model is `cohere/north-mini-code:free`. Its free endpoint (Cohere) is listed by OpenRouter as not training on prompts and keeping them 30 days. Every request is sent with `data_collection: deny`, so OpenRouter refuses it rather than route it to a provider that may train on it.
 - The agent can only read: it runs as opencode's `plan` agent with no shell, no file edits, no web fetch or search, and no paths outside the repository except the PR's diff, which a step writes beforehand. The repository's own opencode config (`opencode.json`, `.opencode/`) is not loaded, so a PR cannot widen these.
 - Drafts are reviewed too. The latest of a burst of pushes gets a new review (earlier runs are cancelled); an earlier comment is not edited.
 - Pull requests from forks, and runs started by a bot, are skipped: forks and Dependabot get no secrets, and opencode refuses bot actors.
@@ -37,7 +37,7 @@ jobs:
 
 `@main` follows this repository, so a model or prompt change here reaches every caller at once. Pin a commit instead if you want to review each change before it runs.
 
-To use another model, pass `with: { model: <OpenRouter model id> }`, for example `cohere/north-mini-code:free`. A model whose free endpoints all may train on prompts fails, because of `data_collection: deny`.
+To use another model, pass `with: { model: <OpenRouter model id> }`, for example `google/gemma-4-31b-it:free`. A model whose free endpoints all may train on prompts fails, because of `data_collection: deny`.
 
 ## Limits
 

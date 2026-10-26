@@ -9,8 +9,9 @@ on:
         description: OpenRouter model id, without the openrouter/ prefix
         type: string
         # Its only free endpoint does not train on prompts (OpenRouter model page, 2026-10-26).
+        # google/gemma-4-31b-it:free was tried first and was rate-limited upstream on each run.
         # Free models are withdrawn without notice; that shows as this job failing.
-        default: google/gemma-4-31b-it:free
+        default: cohere/north-mini-code:free
     secrets:
       # Not required: fork and Dependabot runs pass it empty, and the job's if skips them.
       # Whether a required secret passed empty fails the call first is not verified.
