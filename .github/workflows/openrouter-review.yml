@@ -1,0 +1,20 @@
+name: openrouter-review
+
+# This repository reviews its own PRs with the workflow it ships, from the PR's copy, so a
+# change to review.yml runs before it reaches other callers through @main.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    uses: ./.github/workflows/review.yml
+    secrets:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
