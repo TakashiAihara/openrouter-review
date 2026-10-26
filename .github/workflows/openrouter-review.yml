@@ -17,7 +17,7 @@ jobs:
       issues: write
     uses: ./.github/workflows/review.yml
     with:
-      # Free, does not train on prompts, and answered every run here; its reviews are weak.
-      model: cohere/north-mini-code:free
+      # Kept out of the code so trying a model is a settings change, not a PR. Unset, the job fails.
+      model: ${{ vars.REVIEW_MODEL }}
     secrets:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
