@@ -79,7 +79,7 @@ jobs:
       - uses: anomalyco/opencode/github@148842ef7cb1bc34192b3fff57d0f9721ab9c801 # v1.19.4
         env:
           # The key's credit limit caps what a leaked key can spend; $0 leaves it free models only.
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OLLAMA_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
           # The action's agent input is not read at v1.19.4, so the agent comes from config.
           # Without it the build agent may edit files, and the dirty tree turns the run into
@@ -99,13 +99,11 @@ jobs:
           OPENCODE_DISABLE_PROJECT_CONFIG: "true"
           OPENCODE_CONFIG_CONTENT: >-
             {"default_agent": "plan", "share": "disabled",
-            "small_model": ${{ toJSON(format('openrouter/{0}', inputs.model)) }}, "permission": {"edit": "deny",
+            "small_model": ${{ toJSON(format('ollama-cloud/{0}', inputs.model)) }}, "permission": {"edit": "deny",
             "bash": "deny", "webfetch": "deny", "websearch": "deny", "external_directory":
-            {"*": "deny", "${{ runner.temp }}/openrouter-review/*": "allow"}},
-            "provider": {"openrouter": {"models": {${{ toJSON(inputs.model) }}:
-            {"options": {"provider": {"data_collection": "deny"}}}}}}}
+            {"*": "deny", "${{ runner.temp }}/openrouter-review/*": "allow"}}}
         with:
-          model: openrouter/${{ inputs.model }}
+          model: ollama-cloud/${{ inputs.model }}
           use_github_token: true
           prompt: |
             このプルリクエストをレビューし、結果を日本語で 1 件のコメントにまとめてください。

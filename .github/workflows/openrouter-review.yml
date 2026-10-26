@@ -18,6 +18,6 @@ jobs:
     uses: ./.github/workflows/review.yml
     with:
       # Kept out of the code so trying a model is a settings change, not a PR. Unset, the job fails.
-      model: ${{ vars.REVIEW_MODEL }}
+      model: ${{ vars.TRIAL_MODEL }}
     secrets:
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OLLAMA_REVIEW_API_KEY }}
