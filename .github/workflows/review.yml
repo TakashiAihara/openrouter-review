@@ -133,23 +133,30 @@ jobs:
           out="$RUNNER_TEMP/openrouter-review/logs"
           mkdir -p "$out"
           command -v opencode >/dev/null || { echo "opencode was not installed; nothing to collect"; exit 0; }
-          # Assigned first so a failing list stops the step instead of collecting nothing.
-          sessions=$(env -u API_KEY -u GH_TOKEN_IN opencode session list --format json)
-          for id in $(jq -r '.[].id' <<< "$sessions"); do
-            env -u API_KEY -u GH_TOKEN_IN opencode export "$id" > "$out/session-$id.json" || echo "::warning::export of $id failed"
+          # session list shows only top-level sessions; the table also holds the subagent
+          # sessions the plan agent starts through its task tool. Each value is assigned on its
+          # own so a failing query or jq stops the step instead of collecting nothing.
+          sessions=$(env -u API_KEY -u GH_TOKEN_IN opencode db "select id from session" --format json)
+          ids=$(jq -r '.[].id' <<< "$sessions")
+          for id in $ids; do
+            # A failed export can leave a partial file, which could hold a prefix of the key
+            # that the exact-match check below would not find.
+            env -u API_KEY -u GH_TOKEN_IN opencode export "$id" > "$out/session-$id.json" || { rm -f "$out/session-$id.json"; echo "::warning::export of $id failed"; }
           done
           log_dir="${XDG_DATA_HOME:-$HOME/.local/share}/opencode/log"
           [ -d "$log_dir" ] && cp -r "$log_dir" "$out/log"
           # 0 is a match and 1 no match; anything else means the check did not run, so it is
-          # treated as a match rather than letting the bundle through unchecked. An empty key
-          # matches every line, so a run without the secret keeps nothing.
-          rc=0; grep -rqF -e "$API_KEY" -e "$GH_TOKEN_IN" "$out" || rc=$?
+          # treated as a match rather than letting the bundle through unchecked. An empty
+          # pattern matches every line, so an unset key is left out instead of dropping the
+          # bundle. Patterns go through a file so the values stay out of grep's argv.
+          patterns=("$GH_TOKEN_IN"); [ -n "$API_KEY" ] && patterns+=("$API_KEY")
+          rc=0; grep -rqF -f <(printf '%s\n' "${patterns[@]}") "$out" || rc=$?
           if [ "$rc" != 1 ]; then
             rm -rf "$out"
             echo "::error::The collected logs contain the API key or the GitHub token, or could not be checked (grep exit $rc); they were deleted, not uploaded."
             exit 1
           fi
-      # Only after the collect step finished: a failure before its key check (a failed export
+      # Only after the collect step finished: a failure before its key check (a failed query
       # or copy) would otherwise upload files nobody checked.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always() && steps.collect.outcome == 'success'
@@ -157,5 +164,6 @@ jobs:
           name: openrouter-review-logs
           path: ${{ runner.temp }}/openrouter-review/logs
           if-no-files-found: ignore
-          # Long enough to look at a week of reviews.
+          # Two weeks of reviews to compare prompt changes over; a run's bundle was 12 KB
+          # (run 40799137375).
           retention-days: 14
