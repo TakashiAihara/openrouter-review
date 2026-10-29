@@ -164,6 +164,6 @@ jobs:
           name: openrouter-review-logs
           path: ${{ runner.temp }}/openrouter-review/logs
           if-no-files-found: ignore
-          # Two weeks of reviews to compare prompt changes over; a run's bundle was 12 KB and
-          # 136 KB in runs 40799137375 and 40799927786.
+          # Two weeks of reviews to compare prompt changes over; the uploaded bundle was 12 KB
+          # and 22 KB in runs 40799137375 and 40799927786.
           retention-days: 14
