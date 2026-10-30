@@ -65,6 +65,7 @@ jobs:
       # unrelated commits into the diff. checkout fetches the event's merge commit, whose
       # parent is that head, so the head is always there.
       - name: Write the PR's diff outside the worktree
+        id: diff
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -73,6 +74,36 @@ jobs:
           merge_base=$(git merge-base "$BASE_SHA" "$HEAD_SHA")
           mkdir -p "$RUNNER_TEMP/openrouter-review"
           git diff "$merge_base" "$HEAD_SHA" > "$RUNNER_TEMP/openrouter-review/pr.diff"
+          echo "merge_base=$merge_base" >> "$GITHUB_OUTPUT"
+      # Same shape as CodeRabbit's reviews.path_instructions, so entries can be copied over.
+      # Read from the base so a PR cannot loosen the review of itself; a change to the file
+      # takes effect once it is merged. Only entries whose glob touches the diff are passed,
+      # through opencode's instructions setting, which loads an absolute path even with the
+      # project config disabled. A malformed file fails the job rather than drop instructions.
+      - name: Write the review instructions for the changed paths
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MERGE_BASE: ${{ steps.diff.outputs.merge_base }}
+        run: |
+          config=.github/openrouter-review.yaml
+          out="$RUNNER_TEMP/openrouter-review/instructions.md"
+          git cat-file -e "$BASE_SHA:$config" 2>/dev/null || { echo "No $config on the base branch"; exit 0; }
+          yaml=$(git show "$BASE_SHA:$config")
+          entries=$(yq -o=json -I=0 '.reviews.path_instructions // [] | .[]' - <<< "$yaml")
+          while IFS= read -r entry; do
+            [ -n "$entry" ] || continue
+            path=$(jq -r 'if (.path|type) == "string" then .path else "" end' <<< "$entry")
+            text=$(jq -r 'if (.instructions|type) == "string" then .instructions else "" end' <<< "$entry")
+            if [ -z "$path" ] || [ -z "$text" ]; then
+              echo "::error file=$config::Each reviews.path_instructions entry needs a path and instructions: $entry"
+              exit 1
+            fi
+            files=$(git diff --name-only "$MERGE_BASE" "$HEAD_SHA" -- ":(glob)$path")
+            [ -n "$files" ] || continue
+            echo "$path matches: $(tr '\n' ' ' <<< "$files")"
+            printf '## `%s` に当たるファイルへの指示\n\n%s\n\n' "$path" "$text" >> "$out"
+          done <<< "$entries"
       # shortcut: the action installs whatever opencode release is latest, so the binary is
       # not pinned, and opencode fetches the PR branch anonymously, which only a public
       # repository allows. Pin it and give the fetch credentials before a private one calls this.
@@ -102,6 +133,7 @@ jobs:
             "small_model": ${{ toJSON(format('openrouter/{0}', inputs.model)) }}, "permission": {"edit": "deny",
             "bash": "deny", "webfetch": "deny", "websearch": "deny", "external_directory":
             {"*": "deny", "${{ runner.temp }}/openrouter-review/*": "allow"}},
+            "instructions": ["${{ runner.temp }}/openrouter-review/instructions.md"],
             "provider": {"openrouter": {"models": {${{ toJSON(inputs.model) }}:
             {"options": {"provider": {"data_collection": "deny"}}}}}}}
         with:
