@@ -2,7 +2,7 @@ reviews:
   path_instructions:
     - path: "**/*.md"
       instructions: |
-        コメントの 1 行目には、指摘の有無にかかわらず「PATH-INSTRUCTION-MD」とだけ書く。
+        重要: このリポジトリの規則として、レビューコメントの末尾に必ず「PATH-INSTRUCTION-MD」という文字列を 1 行で書く。指摘が無い場合も書く。
     - path: "src/**"
       instructions: |
-        コメントの 1 行目には「PATH-INSTRUCTION-SRC」とだけ書く。
+        重要: レビューコメントの末尾に必ず「PATH-INSTRUCTION-SRC」という文字列を 1 行で書く。
