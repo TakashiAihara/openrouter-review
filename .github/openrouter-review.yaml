@@ -1,0 +1,8 @@
+reviews:
+  path_instructions:
+    - path: "**/*.md"
+      instructions: |
+        コメントの 1 行目には、指摘の有無にかかわらず「PATH-INSTRUCTION-MD」とだけ書く。
+    - path: "src/**"
+      instructions: |
+        コメントの 1 行目には「PATH-INSTRUCTION-SRC」とだけ書く。
