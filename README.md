@@ -83,3 +83,4 @@ Each model reviewed a replay of a pull request with two known bugs, which openco
 The NVIDIA free endpoints also come under NVIDIA's [API Trial terms](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf), which allow trial and evaluation only, not production use.
 
 Trial line.
+Trial line 2.
