@@ -14,7 +14,8 @@ on:
       opencode-version:
         description: opencode release to review with, as X.Y.Z
         type: string
-        # The version these runs have used (installed as latest until it was pinned here).
+        # The version these runs used while the action installed latest, and the one run
+        # 41157201190 checked with this install step.
         # Raised here on purpose, not by a new upstream release: v2 has no github run command
         # at all (checked at v2.2.5), so leaving 1.x means rewriting the review step.
         default: 1.19.5
@@ -142,8 +143,6 @@ jobs:
         env:
           VERSION: ${{ inputs.opencode-version }}
           GH_TOKEN: ${{ github.token }}
-          # --version below runs in the PR's worktree, where a plugin in its .opencode/ would load.
-          OPENCODE_DISABLE_PROJECT_CONFIG: "true"
         # The job runs on ubuntu-latest, which is x64. Only an immutable release is taken: its
         # assets and digests cannot be replaced after publishing, so the digest pins the bytes.
         run: |
