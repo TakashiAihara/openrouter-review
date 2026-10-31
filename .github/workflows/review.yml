@@ -168,8 +168,9 @@ jobs:
         run: opencode github run
         env:
           # opencode keeps its database and log under the data directory and reads a global
-          # config from the config directory. Directories of this run's own keep a self-hosted
-          # runner's earlier runs, other repositories and the host's config out. They sit outside
+          # config from the config directory. On ubuntu-latest these start empty anyway; the
+          # run's own directories keep the collect step reading only this run's sessions and match
+          # ollama-cloud-review. Cache, state and ~/.opencode are not redirected. They sit outside
           # the directory the agent may read below.
           XDG_DATA_HOME: ${{ runner.temp }}/openrouter-review-data/data
           XDG_CONFIG_HOME: ${{ runner.temp }}/openrouter-review-data/config
@@ -246,8 +247,7 @@ jobs:
         run: |
           out="$RUNNER_TEMP/openrouter-review/logs"
           mkdir -p "$out"
-          # By path, not PATH: if the install failed, a host's own opencode would read the host's
-          # database.
+          # By path, not PATH: if the install failed, another opencode on PATH would be run.
           opencode="$RUNNER_TEMP/opencode-bin/opencode"
           [ -x "$opencode" ] || { echo "opencode was not installed; nothing to collect"; exit 0; }
           # session list shows only top-level sessions; the table also holds the subagent
@@ -255,6 +255,9 @@ jobs:
           # own so a failing query or jq stops the step instead of collecting nothing.
           sessions=$(env -u API_KEY -u GH_TOKEN_IN "$opencode" db "select id from session" --format json)
           ids=$(jq -r '.[].id' <<< "$sessions")
+          # The review step and this one must name the same data directory; if they drift this
+          # finds none and the artifact is empty, so say so instead of passing quietly.
+          [ -n "$ids" ] || echo "::warning::No opencode session found under $XDG_DATA_HOME"
           for id in $ids; do
             # A failed export can leave a partial file, which could hold a prefix of the key
             # that the exact-match check below would not find.
