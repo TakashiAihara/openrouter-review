@@ -270,7 +270,8 @@ jobs:
           # pattern matches every line, so an unset key is left out instead of dropping the
           # bundle. Patterns go through a file so the values stay out of grep's argv.
           patterns=("$GH_TOKEN_IN"); [ -n "$API_KEY" ] && patterns+=("$API_KEY")
-          rc=0; grep -rqF -f <(printf '%s\n' "${patterns[@]}") "$out" || rc=$?
+          # -R follows symlinks, which upload-artifact also follows; cp -r copies them as links.
+          rc=0; grep -RqF -f <(printf '%s\n' "${patterns[@]}") "$out" || rc=$?
           if [ "$rc" != 1 ]; then
             rm -rf "$out"
             echo "::error::The collected logs contain the API key or the GitHub token, or could not be checked (grep exit $rc); they were deleted, not uploaded."
