@@ -57,10 +57,11 @@ reviews:
         Check that third-party actions are pinned to a commit SHA.
 ```
 
-- Only entries whose `path` glob matches a file changed by the pull request are passed to the reviewer. Globs are matched by git's `:(glob)` pathspec, so `**/*.ts` matches `a.ts` at the root too.
-- The file is read from the base branch, not the pull request, so a pull request cannot change how it is reviewed. An edit to the file takes effect once it is merged.
-- An entry without `path` or `instructions`, or a file that is not valid YAML, fails the job.
-- This is separate from `AGENTS.md`, which the reviewer does not load at the repository root. An `AGENTS.md` or `CLAUDE.md` in a subdirectory is still attached when the reviewer reads a file there; opencode has no setting to stop that.
+- Only entries whose `path` glob matches a file changed by the pull request are passed to the reviewer, with the matched files listed. They take precedence over the general review prompt for those files, so an entry can ask for checks the prompt leaves out, such as style.
+- Globs are matched by git's `:(glob)` pathspec, not CodeRabbit's minimatch. `**/*.ts` matches `a.ts` at the root too, and `src` matches everything under `src/`. Braces (`**/*.{ts,js}`) and a leading `!` are not supported and fail the job; split such an entry into several.
+- The file is read from the base branch, not the pull request, so a pull request cannot edit it to change its own review. An edit to the file takes effect once it is merged.
+- The job fails when the file has no `reviews.path_instructions` list (a misspelt key, or `path_instructions` at the top level), when an entry lacks `path` or `instructions` or has instructions over 20000 characters, and when the file is not valid YAML. The run log says how many entries were read and which matched.
+- This is separate from `AGENTS.md`, which the reviewer does not load at the repository root. An `AGENTS.md` or `CONTEXT.md` in a subdirectory, including one the pull request adds, is still attached when the reviewer reads a file there; opencode has no setting to stop that. `CLAUDE.md` is not loaded.
 
 ## Limits
 

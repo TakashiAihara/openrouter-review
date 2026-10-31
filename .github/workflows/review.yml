@@ -79,7 +79,8 @@ jobs:
       # Read from the base so a PR cannot loosen the review of itself; a change to the file
       # takes effect once it is merged. Only entries whose glob touches the diff are passed,
       # through opencode's instructions setting, which loads an absolute path even with the
-      # project config disabled. A malformed file fails the job rather than drop instructions.
+      # project config disabled. An entry that cannot be applied as written fails the job
+      # rather than drop instructions.
       - name: Write the review instructions for the changed paths
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -90,20 +91,38 @@ jobs:
           out="$RUNNER_TEMP/openrouter-review/instructions.md"
           git cat-file -e "$BASE_SHA:$config" 2>/dev/null || { echo "No $config on the base branch"; exit 0; }
           yaml=$(git show "$BASE_SHA:$config")
-          entries=$(yq -o=json -I=0 '.reviews.path_instructions // [] | .[]' - <<< "$yaml")
+          # The file exists only to carry this list, so a missing or misspelt key is an error.
+          list=$(yq -o=json -I=0 '.reviews.path_instructions' - <<< "$yaml")
+          [ "$(jq -r type <<< "$list")" = array ] || { echo "::error file=$config::reviews.path_instructions must be a list"; exit 1; }
+          entries=$(jq -c '.[]' <<< "$list")
+          read_count=0; matched=0
           while IFS= read -r entry; do
             [ -n "$entry" ] || continue
+            read_count=$((read_count + 1))
             path=$(jq -r 'if (.path|type) == "string" then .path else "" end' <<< "$entry")
             text=$(jq -r 'if (.instructions|type) == "string" then .instructions else "" end' <<< "$entry")
             if [ -z "$path" ] || [ -z "$text" ]; then
               echo "::error file=$config::Each reviews.path_instructions entry needs a path and instructions: $entry"
               exit 1
             fi
+            # CodeRabbit matches with minimatch; git's glob has no braces or negation, so such
+            # an entry copied over would silently match nothing.
+            case "$path" in
+              *'{'*|'!'*) echo "::error file=$config::$path: braces and a leading ! are not supported; split the entry"; exit 1 ;;
+            esac
+            # CodeRabbit's limit for one entry.
+            [ "${#text}" -le 20000 ] || { echo "::error file=$config::$path: instructions are over 20000 characters"; exit 1; }
             files=$(git diff --name-only "$MERGE_BASE" "$HEAD_SHA" -- ":(glob)$path")
-            [ -n "$files" ] || continue
+            if [ -z "$files" ]; then echo "$path: no changed file"; continue; fi
+            matched=$((matched + 1))
             echo "$path matches: $(tr '\n' ' ' <<< "$files")"
-            printf '## `%s` に当たるファイルへの指示\n\n%s\n\n' "$path" "$text" >> "$out"
+            if [ ! -f "$out" ]; then
+              # The general prompt forbids style comments; an instruction for a path is the repository asking for more.
+              printf '# パスごとのレビュー指示\n\n次の指示は、見出しに挙げたファイルに限り、レビューの一般的な指示より優先する。\n\n' > "$out"
+            fi
+            printf '## `%s` に当たるファイル\n\n%s\n\n%s\n\n' "$path" "$(sed 's/^/- /' <<< "$files")" "$text" >> "$out"
           done <<< "$entries"
+          echo "$read_count entries read, $matched matched"
       # shortcut: the action installs whatever opencode release is latest, so the binary is
       # not pinned, and opencode fetches the PR branch anonymously, which only a public
       # repository allows. Pin it and give the fetch credentials before a private one calls this.
@@ -128,6 +147,10 @@ jobs:
           # that option (run 40321742692, refused only by the key's $0 limit). toJSON quotes the
           # caller's model id so a stray quote cannot rewrite the permissions around it.
           OPENCODE_DISABLE_PROJECT_CONFIG: "true"
+          # A CLAUDE.md in a subdirectory would otherwise be attached when the agent reads a
+          # file there, bringing the implementer's instructions into the review. AGENTS.md has
+          # no such switch.
+          OPENCODE_DISABLE_CLAUDE_CODE_PROMPT: "true"
           OPENCODE_CONFIG_CONTENT: >-
             {"default_agent": "plan", "share": "disabled",
             "small_model": ${{ toJSON(format('openrouter/{0}', inputs.model)) }}, "permission": {"edit": "deny",
