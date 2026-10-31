@@ -169,6 +169,9 @@ jobs:
         env:
           MODEL: openrouter/${{ inputs.model }}
           USE_GITHUB_TOKEN: "true"
+          # Read up to 1.19.0 at least (not at 1.19.4): unset, a public repository's session is
+          # shared, which the config's "share": "disabled" then refuses before the review starts.
+          SHARE: "false"
           # The key's credit limit caps what a leaked key can spend; $0 leaves it free models only.
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
