@@ -40,6 +40,8 @@ jobs:
 
 `@main` follows this repository, so a prompt or permission change here reaches every caller at once. Pin a commit instead if you want to review each change before it runs.
 
+`opencode-version` picks the [opencode release](https://github.com/anomalyco/opencode/releases) to review with, as `X.Y.Z`. It defaults to the version this repository was checked with, and a new upstream release does not change it. The download is checked against the sha256 digest GitHub records for it. opencode's own GitHub action is not used, because it takes no version and installs whatever release is marked latest.
+
 `model` is an OpenRouter model id without the `openrouter/` prefix; `z-ai/glm-5.3-flash` above is an example, not a default: it is the paid counterpart of the free model that found both bugs below, and every endpoint OpenRouter lists for it does not train on prompts (2026-10-27). It was not measured here. A model whose endpoints all may train on prompts fails, because of `data_collection: deny`.
 
 ## Review instructions per path
@@ -66,7 +68,7 @@ reviews:
 ## Limits
 
 - OpenRouter caps free models at 20 requests a minute and 50 a day per account, or 1000 a day once the account has bought at least 10 credits ([limits](https://openrouter.ai/docs/api/reference/limits)). One review of this repository's first pull request took 15 to 18 requests with `cohere/north-mini-code:free` (runs 40321742692 and 40322027041; the agent reads files one call at a time), and every repository using the same account shares the cap. More accounts do not raise it, and the [terms](https://openrouter.ai/terms) forbid making them for that.
-- Public repositories only for now. opencode fetches the PR branch without credentials, and the opencode binary the action installs is the latest release, not a pinned one.
+- Public repositories only for now. opencode fetches the PR branch without credentials.
 - When a model is withdrawn, the job fails until the caller changes `model`.
 - The model reads the PR's diff and messages, so text in them can steer what the review says. With no shell and no edits, the comment is the only thing it writes.
 

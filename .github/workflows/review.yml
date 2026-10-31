@@ -1,7 +1,7 @@
 name: review
 
 # Called from each repository's pull_request workflow (see README). Kept in one place so the
-# opencode action, its permissions and the prompt are changed once; each caller picks the model.
+# opencode version, its permissions and the prompt are changed once; each caller picks the model.
 on:
   workflow_call:
     inputs:
@@ -11,6 +11,13 @@ on:
         # No default: no free model reviewed well enough to be the one a caller gets without
         # choosing (2026-10, see README), and free models are withdrawn without notice.
         required: true
+      opencode-version:
+        description: opencode release to review with, as X.Y.Z
+        type: string
+        # The version these runs have used (installed as latest until it was pinned here).
+        # Raised here on purpose, not by a new upstream release: a major one changes the
+        # config, the instruction loading and the github run command this relies on.
+        default: 1.19.5
     secrets:
       # Not required: fork and Dependabot runs pass it empty, and the job's if skips them.
       # Whether a required secret passed empty fails the call first is not verified.
@@ -128,15 +135,42 @@ jobs:
             printf '## `%s`\n\n対象ファイル:\n\n%stext\n%s\n%s\n\n指示:\n\n%s\n\n' "$path" "$fence" "$files" "$fence" "$text" >> "$out"
           done <<< "$entries"
           echo "$read_count entries read, $matched matched"
-      # shortcut: the action installs whatever opencode release is latest, so the binary is
-      # not pinned, and opencode fetches the PR branch anonymously, which only a public
-      # repository allows. Pin it and give the fetch credentials before a private one calls this.
-      - uses: anomalyco/opencode/github@148842ef7cb1bc34192b3fff57d0f9721ab9c801 # v1.19.4
+      # opencode's GitHub action takes no version and installs whatever release GitHub marks
+      # latest, so this installs the pinned release and runs the command the action ends with.
+      # The download is checked against the digest GitHub records for the asset.
+      - name: Install opencode ${{ inputs.opencode-version }}
         env:
+          VERSION: ${{ inputs.opencode-version }}
+          ARCH: ${{ runner.arch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::opencode-version must be X.Y.Z, got '$VERSION'"; exit 1; }
+          case "$ARCH" in
+            X64) asset=opencode-linux-x64.tar.gz ;;
+            ARM64) asset=opencode-linux-arm64.tar.gz ;;
+            *) echo "::error::No opencode build for runner arch $ARCH"; exit 1 ;;
+          esac
+          digest=$(gh api "repos/anomalyco/opencode/releases/tags/v$VERSION" --jq ".assets[] | select(.name == \"$asset\") | .digest")
+          [[ "$digest" == sha256:* ]] || { echo "::error::No sha256 digest for $asset in opencode v$VERSION"; exit 1; }
+          dir="$RUNNER_TEMP/opencode-bin"
+          mkdir -p "$dir"
+          curl -fsSL -o "$RUNNER_TEMP/$asset" "https://github.com/anomalyco/opencode/releases/download/v$VERSION/$asset"
+          echo "${digest#sha256:}  $RUNNER_TEMP/$asset" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$asset" -C "$dir"
+          installed=$("$dir/opencode" --version)
+          [ "$installed" = "$VERSION" ] || { echo "::error::Installed opencode reports $installed, not $VERSION"; exit 1; }
+          echo "$dir" >> "$GITHUB_PATH"
+      # shortcut: opencode fetches the PR branch anonymously, which only a public repository
+      # allows. Give the fetch credentials before a private one calls this.
+      - name: Review with opencode
+        run: opencode github run
+        env:
+          MODEL: openrouter/${{ inputs.model }}
+          USE_GITHUB_TOKEN: "true"
           # The key's credit limit caps what a leaked key can spend; $0 leaves it free models only.
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
-          # The action's agent input is not read at v1.19.4, so the agent comes from config.
+          # opencode github run does not read an agent at v1.19.x, so it comes from config.
           # Without it the build agent may edit files, and the dirty tree turns the run into
           # a push that contents: read refuses, losing the review. No shell at all: an allowed
           # git command could still write through a redirect or an abbreviated --output, and a
@@ -164,10 +198,7 @@ jobs:
             "instructions": ["${{ runner.temp }}/openrouter-review/instructions.md"],
             "provider": {"openrouter": {"models": {${{ toJSON(inputs.model) }}:
             {"options": {"provider": {"data_collection": "deny"}}}}}}}
-        with:
-          model: openrouter/${{ inputs.model }}
-          use_github_token: true
-          prompt: |
+          PROMPT: |
             このプルリクエストをレビューし、結果を日本語で 1 件のコメントにまとめてください。
             - 変更の diff は `${{ runner.temp }}/openrouter-review/pr.diff` にある。まずそれを読み、周りのコードはリポジトリのファイルを読んで確かめる
             - 既存のコメントやレビューの指摘は繰り返さず、変更そのものを独立に見る
