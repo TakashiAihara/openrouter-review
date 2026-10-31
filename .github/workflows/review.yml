@@ -142,6 +142,8 @@ jobs:
         env:
           VERSION: ${{ inputs.opencode-version }}
           GH_TOKEN: ${{ github.token }}
+          # --version below runs in the PR's worktree, where a plugin in its .opencode/ would load.
+          OPENCODE_DISABLE_PROJECT_CONFIG: "true"
         # The job runs on ubuntu-latest, which is x64. Only an immutable release is taken: its
         # assets and digests cannot be replaced after publishing, so the digest pins the bytes.
         run: |
@@ -155,7 +157,9 @@ jobs:
           mkdir -p "$dir"
           curl -fsSL --retry 3 -o "$RUNNER_TEMP/$asset" "https://github.com/anomalyco/opencode/releases/download/v$VERSION/$asset"
           echo "${digest#sha256:}  $RUNNER_TEMP/$asset" | sha256sum -c -
-          tar -xzf "$RUNNER_TEMP/$asset" -C "$dir"
+          # Only the opencode binary goes on PATH, so nothing else in the archive can shadow a
+          # command the later steps run.
+          tar -xzf "$RUNNER_TEMP/$asset" -C "$dir" opencode
           installed=$("$dir/opencode" --version)
           [ "$installed" = "$VERSION" ] || { echo "::error::Installed opencode reports $installed, not $VERSION"; exit 1; }
           echo "$dir" >> "$GITHUB_PATH"
