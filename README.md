@@ -42,6 +42,27 @@ jobs:
 
 `model` is an OpenRouter model id without the `openrouter/` prefix; `z-ai/glm-5.3-flash` above is an example, not a default: it is the paid counterpart of the free model that found both bugs below, and every endpoint OpenRouter lists for it does not train on prompts (2026-10-27). It was not measured here. A model whose endpoints all may train on prompts fails, because of `data_collection: deny`.
 
+## Review instructions per path
+
+To give the reviewer guidance for some files, add `.github/openrouter-review.yaml`. It takes the same shape as CodeRabbit's [`reviews.path_instructions`](https://docs.coderabbit.ai/reference/configuration), so entries can be copied from a `.coderabbit.yaml` as long as their globs avoid the syntax listed below:
+
+```yaml
+reviews:
+  path_instructions:
+    - path: "**/*.ts"
+      instructions: |
+        Point out a try/catch that swallows an error.
+    - path: ".github/workflows/**"
+      instructions: |
+        Check that third-party actions are pinned to a commit SHA.
+```
+
+- Only entries whose `path` glob matches a file changed by the pull request are passed to the reviewer, with the matched files listed. For those files they decide what the reviewer checks over the general review prompt, so an entry can ask for checks the prompt leaves out, such as style. The output format and the read-only rules stay.
+- Globs are matched by git's `:(glob)` pathspec, not CodeRabbit's minimatch. `**/*.ts` matches `a.ts` at the root too, and `src` matches everything under `src/`. Braces (`**/*.{ts,js}`), extglob (`+(a|b)`), and a leading `!` or `#` are not supported and fail the job; split or rewrite such an entry. A `{` is refused even inside `[...]`.
+- The file is read from the base branch, not the pull request, so a pull request cannot edit it to change its own review. An edit to the file takes effect once it is merged.
+- The job fails when the file has no `reviews.path_instructions` list (a misspelt `reviews` or `path_instructions`, or `path_instructions` at the top level), when an entry lacks `path` or `instructions` or has instructions over 20000 characters, and when the file is not valid YAML. Other keys are ignored, so a misspelt key next to the list is not caught. The run log says how many entries were read and which matched.
+- This is separate from `AGENTS.md`, which the reviewer does not load at the repository root. An `AGENTS.md` or `CONTEXT.md` in a subdirectory, including one the pull request adds, is still attached when the reviewer reads a file there; opencode has no setting to stop that. `CLAUDE.md` is not loaded.
+
 ## Limits
 
 - OpenRouter caps free models at 20 requests a minute and 50 a day per account, or 1000 a day once the account has bought at least 10 credits ([limits](https://openrouter.ai/docs/api/reference/limits)). One review of this repository's first pull request took 15 to 18 requests with `cohere/north-mini-code:free` (runs 40321742692 and 40322027041; the agent reads files one call at a time), and every repository using the same account shares the cap. More accounts do not raise it, and the [terms](https://openrouter.ai/terms) forbid making them for that.
