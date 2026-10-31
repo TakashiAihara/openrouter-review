@@ -167,6 +167,15 @@ jobs:
       - name: Review with opencode
         run: opencode github run
         env:
+          # opencode keeps its database and log under the data directory and reads a global
+          # config from the config directory. Directories of this run's own keep a self-hosted
+          # runner's earlier runs, other repositories and the host's config out. They sit outside
+          # the directory the agent may read below.
+          XDG_DATA_HOME: ${{ runner.temp }}/openrouter-review-data/data
+          XDG_CONFIG_HOME: ${{ runner.temp }}/openrouter-review-data/config
+          # Set to an absolute path it would take precedence over the data directory; empty is
+          # read as unset (1.19.5 core/src/database/database.ts).
+          OPENCODE_DB: ""
           MODEL: openrouter/${{ inputs.model }}
           USE_GITHUB_TOKEN: "true"
           # 1.17.0 to 1.19.0 read it (1.19.4 does not): unset, they share a public repository's
@@ -196,6 +205,8 @@ jobs:
           # file there, bringing the implementer's instructions into the review. AGENTS.md and
           # CONTEXT.md have no such switch.
           OPENCODE_DISABLE_CLAUDE_CODE_PROMPT: "true"
+          # .claude/skills and .agents/skills in the PR would otherwise load as project skills.
+          OPENCODE_DISABLE_EXTERNAL_SKILLS: "true"
           OPENCODE_CONFIG_CONTENT: >-
             {"default_agent": "plan", "share": "disabled",
             "small_model": ${{ toJSON(format('openrouter/{0}', inputs.model)) }}, "permission": {"edit": "deny",
@@ -226,21 +237,30 @@ jobs:
           # opencode runs here in the PR's worktree too; without this a plugin in the PR's
           # .opencode/ would load and run.
           OPENCODE_DISABLE_PROJECT_CONFIG: "true"
+          # The review step's own directories, so only this run's sessions and log are read.
+          XDG_DATA_HOME: ${{ runner.temp }}/openrouter-review-data/data
+          XDG_CONFIG_HOME: ${{ runner.temp }}/openrouter-review-data/config
+          # Set to an absolute path it would take precedence over the data directory; empty is
+          # read as unset (1.19.5 core/src/database/database.ts).
+          OPENCODE_DB: ""
         run: |
           out="$RUNNER_TEMP/openrouter-review/logs"
           mkdir -p "$out"
-          command -v opencode >/dev/null || { echo "opencode was not installed; nothing to collect"; exit 0; }
+          # By path, not PATH: if the install failed, a host's own opencode would read the host's
+          # database.
+          opencode="$RUNNER_TEMP/opencode-bin/opencode"
+          [ -x "$opencode" ] || { echo "opencode was not installed; nothing to collect"; exit 0; }
           # session list shows only top-level sessions; the table also holds the subagent
           # sessions the plan agent starts through its task tool. Each value is assigned on its
           # own so a failing query or jq stops the step instead of collecting nothing.
-          sessions=$(env -u API_KEY -u GH_TOKEN_IN opencode db "select id from session" --format json)
+          sessions=$(env -u API_KEY -u GH_TOKEN_IN "$opencode" db "select id from session" --format json)
           ids=$(jq -r '.[].id' <<< "$sessions")
           for id in $ids; do
             # A failed export can leave a partial file, which could hold a prefix of the key
             # that the exact-match check below would not find.
-            env -u API_KEY -u GH_TOKEN_IN opencode export "$id" > "$out/session-$id.json" || { rm -f "$out/session-$id.json"; echo "::warning::export of $id failed"; }
+            env -u API_KEY -u GH_TOKEN_IN "$opencode" export "$id" > "$out/session-$id.json" || { rm -f "$out/session-$id.json"; echo "::warning::export of $id failed"; }
           done
-          log_dir="${XDG_DATA_HOME:-$HOME/.local/share}/opencode/log"
+          log_dir="$XDG_DATA_HOME/opencode/log"
           [ -d "$log_dir" ] && cp -r "$log_dir" "$out/log"
           # 0 is a match and 1 no match; anything else means the check did not run, so it is
           # treated as a match rather than letting the bundle through unchecked. An empty
