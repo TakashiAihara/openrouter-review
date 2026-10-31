@@ -40,7 +40,7 @@ jobs:
 
 `@main` follows this repository, so a prompt or permission change here reaches every caller at once. Pin a commit instead if you want to review each change before it runs.
 
-`opencode-version` picks the [opencode release](https://github.com/anomalyco/opencode/releases) to review with, as `X.Y.Z`. It defaults to the version this repository was checked with, and a new upstream release does not change it. The download is checked against the sha256 digest GitHub records for it. opencode's own GitHub action is not used, because it takes no version and installs whatever release is marked latest.
+`opencode-version` picks the [opencode release](https://github.com/anomalyco/opencode/releases) to review with, as `X.Y.Z`. It defaults to the version this repository was checked with, and a new upstream release does not change it. Only an immutable release is accepted, and the download is checked against the sha256 digest GitHub recorded when it was published; a non-immutable release fails the job. opencode's own GitHub action is not used, because it takes no version and installs whatever release is marked latest.
 
 `model` is an OpenRouter model id without the `openrouter/` prefix; `z-ai/glm-5.3-flash` above is an example, not a default: it is the paid counterpart of the free model that found both bugs below, and every endpoint OpenRouter lists for it does not train on prompts (2026-10-27). It was not measured here. A model whose endpoints all may train on prompts fails, because of `data_collection: deny`.
 

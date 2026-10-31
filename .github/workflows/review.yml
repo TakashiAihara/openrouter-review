@@ -15,8 +15,8 @@ on:
         description: opencode release to review with, as X.Y.Z
         type: string
         # The version these runs have used (installed as latest until it was pinned here).
-        # Raised here on purpose, not by a new upstream release: a major one changes the
-        # config, the instruction loading and the github run command this relies on.
+        # Raised here on purpose, not by a new upstream release: v2 has no github run command
+        # at all (checked at v2.2.5), so leaving 1.x means rewriting the review step.
         default: 1.19.5
     secrets:
       # Not required: fork and Dependabot runs pass it empty, and the job's if skips them.
@@ -141,20 +141,19 @@ jobs:
       - name: Install opencode ${{ inputs.opencode-version }}
         env:
           VERSION: ${{ inputs.opencode-version }}
-          ARCH: ${{ runner.arch }}
           GH_TOKEN: ${{ github.token }}
+        # The job runs on ubuntu-latest, which is x64. Only an immutable release is taken: its
+        # assets and digests cannot be replaced after publishing, so the digest pins the bytes.
         run: |
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::opencode-version must be X.Y.Z, got '$VERSION'"; exit 1; }
-          case "$ARCH" in
-            X64) asset=opencode-linux-x64.tar.gz ;;
-            ARM64) asset=opencode-linux-arm64.tar.gz ;;
-            *) echo "::error::No opencode build for runner arch $ARCH"; exit 1 ;;
-          esac
-          digest=$(gh api "repos/anomalyco/opencode/releases/tags/v$VERSION" --jq ".assets[] | select(.name == \"$asset\") | .digest")
+          asset=opencode-linux-x64.tar.gz
+          release=$(gh api "repos/anomalyco/opencode/releases/tags/v$VERSION")
+          [ "$(jq -r .immutable <<< "$release")" = true ] || { echo "::error::opencode v$VERSION is not an immutable release"; exit 1; }
+          digest=$(jq -r --arg a "$asset" '.assets[] | select(.name == $a) | .digest' <<< "$release")
           [[ "$digest" == sha256:* ]] || { echo "::error::No sha256 digest for $asset in opencode v$VERSION"; exit 1; }
           dir="$RUNNER_TEMP/opencode-bin"
           mkdir -p "$dir"
-          curl -fsSL -o "$RUNNER_TEMP/$asset" "https://github.com/anomalyco/opencode/releases/download/v$VERSION/$asset"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$asset" "https://github.com/anomalyco/opencode/releases/download/v$VERSION/$asset"
           echo "${digest#sha256:}  $RUNNER_TEMP/$asset" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/$asset" -C "$dir"
           installed=$("$dir/opencode" --version)
@@ -170,7 +169,8 @@ jobs:
           # The key's credit limit caps what a leaked key can spend; $0 leaves it free models only.
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
-          # opencode github run does not read an agent at v1.19.x, so it comes from config.
+          # opencode github run does not read an agent (checked at 1.19.4 and 1.19.5), so it
+          # comes from config.
           # Without it the build agent may edit files, and the dirty tree turns the run into
           # a push that contents: read refuses, losing the review. No shell at all: an allowed
           # git command could still write through a redirect or an abbreviated --output, and a
